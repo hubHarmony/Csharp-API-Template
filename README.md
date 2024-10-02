@@ -17,7 +17,7 @@ Cette API simple est construite avec ASP.NET Core et permet de gérer diverses r
 ### Prérequis
 
 - [.NET SDK](https://dotnet.microsoft.com/download) (version 8.0 ou supérieure) 💻
-- [Visual Studio Code](https://code.visualstudio.com/) ou [JetBrains Rider](https://www.jetbrains.com/rider/) pour le développement 🛠️
+- [Visual Studio](https://visualstudio.microsoft.com/fr/) ou [JetBrains Rider](https://www.jetbrains.com/rider/) pour le développement 🛠️
 - [MySQL Server](https://www.mysql.com/) pour la base de données 💾
 
 ### Forker le projet
