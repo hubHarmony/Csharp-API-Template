@@ -79,7 +79,7 @@ namespace Simple_API.Controllers
         }
     }
 
-    [Route("Test/")]
+    [Route("[controller]")]
     [ApiController]
     public class Test : ControllerBase
     {
@@ -113,30 +113,34 @@ namespace Simple_API.Controllers
         }
 
         // DELETE: test/delete
-        [Authorize]
         [HttpDelete("Delete")]
         public IActionResult TestDelete([FromBody] TestPayload testPayload)
         {
             return Ok($"DELETE: {ProtocolOk} Deleted: {testPayload.Data}");
         }
+    }
 
+    [Route("Test/Protected")]
+    [ApiController]
+    public class ProtectedTest : ControllerBase
+    {
         [Authorize]
-        [HttpGet("Protected")]
-        public IActionResult Protected()
+        [HttpGet("Basic")]
+        public IActionResult Basic()
         {
-            return Ok("Successfully executed secured request.");
+            return Ok("Successfully executed secured request. (Any user)");
         }
         
         [Authorize(Roles = Default.UserRoles.User)]
-        [HttpGet("ProtectedUserOnly")]
-        public IActionResult ProtectedUserOnly()
+        [HttpGet("UserOnly")]
+        public IActionResult UserOnly()
         {
             return Ok("Successfully executed secured request. (User)");
         }
         
         [Authorize(Roles = Default.UserRoles.Admin)]
-        [HttpGet("ProtectedAdminOnly")]
-        public IActionResult ProtectedAdminOnly()
+        [HttpGet("AdminOnly")]
+        public IActionResult AdminOnly()
         {
             return Ok("Successfully executed secured request. (Admin)");
         }
