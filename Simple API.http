@@ -5,6 +5,6 @@ Accept: application/json
 
 ###
 
-GET {{Simple_API_HostAddress}}/test/get
-Authorization: Bearer 1
+PUT {{Simple_API_HostAddress}}/test/put
+Authorization: Bearer 
 ###

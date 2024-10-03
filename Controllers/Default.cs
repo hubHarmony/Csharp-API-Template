@@ -10,12 +10,16 @@ using Microsoft.IdentityModel.Tokens;
 namespace Simple_API.Controllers
 {
 
-    [Route("auth/")]
+    [Route("Auth/")]
     [ApiController]
     public class Default(IConfiguration configuration) : ControllerBase
     {
-
-
+        public static class UserRoles
+        {
+            public const string User = "User";
+            public const string Admin = "Admin";
+        }
+        
         public class AuthPayload
         {
             [DataType(DataType.EmailAddress)]
@@ -32,13 +36,13 @@ namespace Simple_API.Controllers
             public string? Password { get; init; } = string.Empty;
         }
 
-        [HttpPut("register")]
+        [HttpPut("Register")]
         public IActionResult Register([FromBody] AuthPayload authPayload)
         {
             return Ok();
         }
 
-        [HttpPost("login")]
+        [HttpPost("Login")]
         public IActionResult Login([FromBody] AuthPayload authPayload)
         {
             // Here, you would typically validate the user's credentials against a database.
@@ -47,7 +51,7 @@ namespace Simple_API.Controllers
                 var claims = new[]
                 {
                     new Claim(ClaimTypes.Email, authPayload.Email),
-                    new Claim(ClaimTypes.Role, "Admin"),
+                    new Claim(ClaimTypes.Role, UserRoles.User),
                     new Claim(ClaimTypes.GivenName, "Test_ID"),
                 };
 
@@ -75,7 +79,7 @@ namespace Simple_API.Controllers
         }
     }
 
-    [Route("test/")]
+    [Route("Test/")]
     [ApiController]
     public class Test : ControllerBase
     {
@@ -88,32 +92,53 @@ namespace Simple_API.Controllers
         private const string ProtocolOk = "Protocol tested successfully.";
 
         // GET: test/get
-        [Authorize]
-        [HttpGet("get")]
+        [HttpGet("Get")]
         public IActionResult TestGet()
         {
             return Ok($"GET: {ProtocolOk}");
         }
 
         // POST: test/post
-        [HttpPost("post")]
+        [HttpPost("Post")]
         public IActionResult TestPost([FromBody] TestPayload testPayload)
         {
             return Ok($"POST: {ProtocolOk} Received: {testPayload.Data}");
         }
 
         // PUT: test/put
-        [HttpPut("put")]
+        [HttpPut("Put")]
         public IActionResult TestPut([FromBody] TestPayload testPayload)
         {
             return Ok($"PUT: {ProtocolOk} Updated: {testPayload.Data}");
         }
 
         // DELETE: test/delete
-        [HttpDelete("delete")]
+        [Authorize]
+        [HttpDelete("Delete")]
         public IActionResult TestDelete([FromBody] TestPayload testPayload)
         {
             return Ok($"DELETE: {ProtocolOk} Deleted: {testPayload.Data}");
+        }
+
+        [Authorize]
+        [HttpGet("Protected")]
+        public IActionResult Protected()
+        {
+            return Ok("Successfully executed secured request.");
+        }
+        
+        [Authorize(Roles = Default.UserRoles.User)]
+        [HttpGet("ProtectedUserOnly")]
+        public IActionResult ProtectedUserOnly()
+        {
+            return Ok("Successfully executed secured request. (User)");
+        }
+        
+        [Authorize(Roles = Default.UserRoles.Admin)]
+        [HttpGet("ProtectedAdminOnly")]
+        public IActionResult ProtectedAdminOnly()
+        {
+            return Ok("Successfully executed secured request. (Admin)");
         }
     }
 }
