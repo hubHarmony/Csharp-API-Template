@@ -96,10 +96,8 @@ L'API sera accessible à l'adresse `http://localhost:5000`.
    - Endpoint : `GET /api/data`
    - En-tête de la requête :
      ```
-     Authorization: SST votreJWT
+     Authorization: Bearer votreJWT
      ```
-     SST est ici l'acronyme de Super Secure Token, un JavaWebToken généré automatiquement lors du login et dont la signature sera vérifiée à chaque requête nécéssitant un compte utilisateur. 
-
 ## Exemples de Requêtes
 
 ### Inscription d'un utilisateur
