@@ -47,7 +47,7 @@ Cette API simple est construite avec ASP.NET Core et permet de gérer diverses r
      ```json
      {
        "ConnectionStrings": {
-         "DefaultConnection": "Server=localhost;Database=nom_de_votre_base;User=utilisateur;Password=motdepasse;"
+         "DATABASE": "Server=localhost;Database=nom_de_votre_base;User=utilisateur;Password=motdepasse;"
        }
      }
      ```
