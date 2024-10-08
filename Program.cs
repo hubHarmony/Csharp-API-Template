@@ -22,6 +22,12 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader();
     });
 });
+
+// TODO : Replace values in "appsettings.json" to make this bloc work.
+
+// APPSETTINGS CONFIGURATION START
+
+// Database Configuration
 builder.Services.AddDbContext<Database>(options =>
     options.UseMySql(builder.Configuration.GetConnectionString("DATABASE"), 
         ServerVersion.AutoDetect(builder.Configuration.GetConnectionString("DATABASE"))));
@@ -36,6 +42,9 @@ if (string.IsNullOrEmpty(key))
 {
     return;
 }
+
+// APPSETTINGS CONFIGURATION END
+
 builder.Services.AddAuthentication(options =>
     {
         options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
