@@ -1,18 +1,15 @@
 using System.ComponentModel.DataAnnotations;
-using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
-
+using Simple_API.Database;
 
 namespace Simple_API.Controllers
 {
 
     [Route("Auth/")]
     [ApiController]
-    public class Default(IConfiguration configuration) : ControllerBase
+    public class Default(IConfiguration configuration, UserService userService) : ControllerBase
     {
         public static class UserRoles
         {
@@ -20,63 +17,105 @@ namespace Simple_API.Controllers
             public const string Admin = "Admin";
         }
         
-        public class AuthPayload
+        public class LoginAuthPayload
         {
             [DataType(DataType.EmailAddress)]
+            [StringLength(100, ErrorMessage = "The email must be at max 100 characters long.")]
             [EmailAddress(ErrorMessage = "Invalid Email Address.")]
             [Required(ErrorMessage = "Email address is required.")]
-            public string? Email { get; init; } = string.Empty;
+            public string Email { get; init; } = string.Empty;
 
 
             [DataType(DataType.Password)]
             [Required(ErrorMessage = "Password is required.")]
+            [StringLength(255, ErrorMessage = "Password must be between 8 and 255 characters.")]
             [RegularExpression(@"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$",
                 ErrorMessage = "Password must be at least 8 characters long and contain at least one uppercase letter,"
                                + " one lowercase letter, one number, and one special character.")]
-            public string? Password { get; init; } = string.Empty;
+            public string Password { get; init; } = string.Empty;
         }
+        
+        public class RegisterAuthPayload : LoginAuthPayload
+        {
+            [Required(ErrorMessage = "First name is required.")]
+            [RegularExpression(@"^[A-Z][a-zA-Z]*$", ErrorMessage =
+                "First name must start with a capital letter and contain only letters.")]
+            [StringLength(50, ErrorMessage = "First name cannot exceed 50 characters.")]
+            public string? FirstName { get; init; } = string.Empty;
+
+            [Required(ErrorMessage = "Last name is required.")]
+            [RegularExpression(@"^[A-Z][a-zA-Z]*$", ErrorMessage =
+                "Last name must start with a capital letter and contain only letters.")]
+            [StringLength(50, ErrorMessage = "Last name cannot exceed 50 characters.")]
+            public string? LastName { get; init; } = string.Empty;
+
+            [Required(ErrorMessage = "Birthday is required.")]
+            [DataType(DataType.Date)]
+            public DateTime? Birthday { get; init; }
+
+            [Required(ErrorMessage = "Phone number is required.")]
+            [StringLength(15, ErrorMessage = "Phone number cannot exceed 15 characters.")]
+            [RegularExpression(@"^(\+33|0)[1-9](\d{2}){4}$", ErrorMessage =
+                "Phone number must be a valid French phone number (e.g., +33 6 12 34 56 78 or 06 12 34 56 78).")]
+            public string? PhoneNumber { get; init; } = string.Empty;
+        }
+        
 
         [HttpPut("Register")]
-        public IActionResult Register([FromBody] AuthPayload authPayload)
+        public async Task<IActionResult> Register([FromBody] RegisterAuthPayload registerAuthPayload)
         {
-            return Ok();
+            var existingUser = userService.GetUserByEmail(registerAuthPayload.Email);
+            if (existingUser != null)
+                return BadRequest("User already exists.");
+            try
+            {
+                await userService.CreateUserAsync(registerAuthPayload);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            
+            return Ok("User created.");
         }
 
         [HttpPost("Login")]
-        public IActionResult Login([FromBody] AuthPayload authPayload)
+        public IActionResult Login([FromBody] LoginAuthPayload loginAuthPayload)
         {
-            // Here, you would typically validate the user's credentials against a database.
-            if (authPayload.Email == "test@example.com" && authPayload.Password == "Password123!")
+            var email = loginAuthPayload.Email;
+            var user = userService.GetUserByEmail(email);
+            if (user == null || !LightCrypto.VerifyPassword(user.Password, loginAuthPayload.Password))
             {
-                var claims = new[]
-                {
-                    new Claim(ClaimTypes.Email, authPayload.Email),
-                    new Claim(ClaimTypes.Role, UserRoles.User),
-                    new Claim(ClaimTypes.GivenName, "Test_ID"),
-                };
-
-                var configKey = configuration["Jwt:Key"];
-
-                if (string.IsNullOrEmpty(configKey))
-                {
-                    return StatusCode(500);
-                }
-
-                var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configKey));
-                var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-                var token = new JwtSecurityToken(
-                    issuer: configuration["Jwt:Issuer"],
-                    audience: configuration["Jwt:Audience"],
-                    claims: claims,
-                    expires: DateTime.Now.AddMinutes(190),
-                    signingCredentials: credentials);
-
-                return Ok(new { token = new JwtSecurityTokenHandler().WriteToken(token) });
+                return Unauthorized();
             }
-
-            return Unauthorized();
+            var token =
+                LightCrypto.GenerateJwtToken(email: email,
+                    role: user.IsAdmin ? UserRoles.Admin : UserRoles.User, userId: user.Id, configuration);
+            return Ok(new { token = token });
         }
+        
+        [Authorize(Roles = UserRoles.Admin)]
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetUser(string id)
+        {
+            var user = await userService.GetUserByIdAsync(id);
+            if (user == null)
+            {
+                return NotFound("User not found.");
+            }
+            return Ok(user);
+        }
+
+        
+        [Authorize(Roles = UserRoles.Admin)]
+        [HttpGet("benchmark/{numberOfUsers}")]
+        public async Task<IActionResult> GenerateUsers(int numberOfUsers)
+        {
+            var time = await userService.BenchmarkUsers(numberOfUsers);
+            
+            return Ok($"Successfully created {numberOfUsers} user; database insertion took {time}.");
+        }
+        
     }
 
     [Route("[controller]")]
@@ -124,25 +163,31 @@ namespace Simple_API.Controllers
     [ApiController]
     public class ProtectedTest : ControllerBase
     {
+        // Authorized GET: Test/Protected/Basic
         [Authorize]
         [HttpGet("Basic")]
         public IActionResult Basic()
         {
-            return Ok("Successfully executed secured request. (Any user)");
+            var userId = User.FindFirst(ClaimTypes.GivenName)!.Value;
+            var role = User.FindFirst(ClaimTypes.Role)!.Value;
+
+            return Ok($"Successfully executed secured request. (Any user) as {role} with id {userId}");
         }
         
+        // Authorized GET: Test/Protected/UserOnly
         [Authorize(Roles = Default.UserRoles.User)]
         [HttpGet("UserOnly")]
         public IActionResult UserOnly()
         {
-            return Ok("Successfully executed secured request. (User)");
+            return Ok("Successfully executed secured request. (Users only)");
         }
         
+        // Authorized GET: Test/Protected/AdminOnly
         [Authorize(Roles = Default.UserRoles.Admin)]
         [HttpGet("AdminOnly")]
         public IActionResult AdminOnly()
         {
-            return Ok("Successfully executed secured request. (Admin)");
+            return Ok("Successfully executed secured request. (Admins only)");
         }
     }
 }
